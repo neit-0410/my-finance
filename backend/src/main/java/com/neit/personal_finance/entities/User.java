@@ -1,6 +1,7 @@
 package com.neit.personal_finance.entities;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.*;
 
 import java.time.LocalDateTime;
@@ -21,6 +22,7 @@ public class User {
     private String username;
 
     @Column(nullable = false)
+    @JsonIgnore
     private String password;
 
     private String fullName;
@@ -30,6 +32,7 @@ public class User {
 
     private String phone;
 
+    @Builder.Default
     private LocalDateTime createDt = LocalDateTime.now();
 
     private String role;

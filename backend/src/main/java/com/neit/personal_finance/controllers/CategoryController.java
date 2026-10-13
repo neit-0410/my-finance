@@ -1,6 +1,8 @@
 package com.neit.personal_finance.controllers;
 
 import com.neit.personal_finance.entities.Category;
+import com.neit.personal_finance.dto.request.CategoryRequest;
+import jakarta.validation.Valid;
 import com.neit.personal_finance.services.CategoryService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -16,8 +18,8 @@ public class CategoryController {
     private final CategoryService categoryService;
 
     @PostMapping
-    public ResponseEntity<Category> create(@RequestBody Category category) {
-        return ResponseEntity.ok(categoryService.createCategory(category));
+    public ResponseEntity<Category> create(@Valid @RequestBody CategoryRequest request) {
+        return ResponseEntity.ok(categoryService.createCategory(Category.builder().name(request.name()).type(request.type()).build()));
     }
 
     @GetMapping("/user/{userId}")

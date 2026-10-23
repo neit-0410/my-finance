@@ -75,3 +75,21 @@ npm run dev
 ```
 
 Mở `http://localhost:5173` để đăng ký/đăng nhập, tạo danh mục, ghi thu chi và xem tổng quan. Frontend tự quản lý Bearer token, không cần Postman. Cần Node.js 22.12+ hoặc 24 LTS. Xem [hướng dẫn frontend](frontend/README.md) để cấu hình proxy, build và chạy kiểm thử.
+
+## Đầu tư chứng khoán
+
+Mở **Chứng khoán** trên giao diện để ghi giao dịch mua/bán, xem nắm giữ, lịch sử, vốn đầu tư và lãi/lỗ. Module là sổ theo dõi giao dịch đã thực hiện, không đặt lệnh lên sàn và không cung cấp giá trực tiếp.
+
+- Nhập mã (tối đa 12 ký tự, tự chuyển chữ hoa), số lượng cổ phiếu nguyên dương, giá/CP bằng VND, tổng phí và ngày khớp lệnh không ở tương lai. Ví dụ giá 95.000đ/CP phải nhập **95000**.
+- Phí mua cộng vào giá vốn. Áp dụng **giá vốn bình quân gia quyền**; phí bán trừ khỏi lãi/lỗ đã chốt. Phần phí/thuế muốn tính cần nhập vào trường phí, chưa hỗ trợ cổ tức/chia tách.
+- Nhập **giá tham chiếu thủ công** cho từng mã để xem giá trị và lãi/lỗ chưa chốt. Thời điểm cập nhật được hiển thị; giá không tự làm mới. Nếu còn mã đang nắm giữ thiếu giá, tổng giá trị và lãi/lỗ chưa chốt hiển thị “Chưa có giá”.
+- Không cho bán vượt số cổ phiếu đang có tại ngày giao dịch. Giao dịch cùng ngày xét theo thứ tự ghi nhận. Nhập lùi ngày sẽ tính lại toàn bộ sổ; nếu gây bán vượt số lượng, toàn bộ thao tác bị hủy.
+- Mỗi tài khoản có sổ và giá tham chiếu riêng. Việc mua/bán **không tự tạo giao dịch thu chi cá nhân**, tránh tính trùng. Chưa có sửa/xóa giao dịch cổ phiếu.
+
+API đều cần Bearer token và tự lấy chủ sở hữu từ tài khoản đăng nhập:
+
+- `GET /api/investments`: tổng hợp, các vị thế (kể cả mã đã bán hết) và lịch sử mua/bán.
+- `POST /api/investments/trades`: `{"symbol":"FPT","side":"BUY","quantity":100,"price":95000,"fee":15000,"tradeDate":"2026-10-23"}`. `side` nhận `BUY` hoặc `SELL`.
+- `POST /api/investments/prices`: `{"symbol":"FPT","price":98000}`.
+
+Backend tạo hai bảng mới `stock_trades` và `stock_quotes` qua cấu hình `ddl-auto=update` hiện có. Tính tiền bằng `BigDecimal`, làm tròn kết quả đến 4 chữ số thập phân; khóa theo tài khoản khi ghi để chống bán vượt khi có yêu cầu đồng thời. Không cần thêm khóa API hoặc biến môi trường.

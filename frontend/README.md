@@ -55,3 +55,12 @@ npm run test:live
 ```
 
 Live test tạo một tài khoản `ui_<timestamp>`, một danh mục và một giao dịch trong database phát triển. Không chạy trên production. Chưa có API xóa nên dữ liệu kiểm thử được giữ lại. Có thể chọn Chromium cài sẵn qua `CHROMIUM_PATH`; trên cloud, cấu hình tự dùng `/usr/bin/chromium` khi có.
+
+
+## Module chứng khoán
+
+Chọn **Chứng khoán** → ghi nhận Mua/Bán → nhập giá tham chiếu cho mã đã mua. Giao diện hiển thị số cổ phiếu, giá vốn bình quân, giá trị, lãi/lỗ đã chốt/chưa chốt và lịch sử. Đơn vị giá là **VND cho một cổ phiếu**, không phải nghìn đồng. Giá tham chiếu là giá nhập tay, có thời điểm cập nhật; không có kết nối sàn hoặc đặt lệnh thật.
+
+Chưa hỗ trợ sửa/xóa, cổ tức và chia tách. Phí mua/bán được tính vào lãi/lỗ; các khoản thuế khác chỉ được tính nếu bạn gộp vào phí nhập. Giao dịch đầu tư không tự ghi vào sổ thu chi cá nhân. Tài khoản không thể xem hoặc sửa sổ đầu tư của người khác.
+
+`npm test` bao gồm kiểm thử mua cổ phiếu, cập nhật giá, lịch sử, phản hồi bán vượt số lượng và bố cục mobile. `npm run test:live` kiểm tra thêm mua/cập nhật giá/bán với backend thật; test tạo tài khoản và dữ liệu đầu tư riêng trong database phát triển.

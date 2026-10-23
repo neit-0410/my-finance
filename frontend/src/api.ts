@@ -80,6 +80,14 @@ export async function api<T>(
       404: "Không tìm thấy dữ liệu. Vui lòng tải lại trang.",
       409: "Tên đăng nhập hoặc email đã được sử dụng.",
     };
+    if (path.startsWith("/investments") && response.status === 400) {
+      const detail = await response.json().catch(() => null);
+      if (
+        typeof detail?.message === "string" &&
+        detail.message.startsWith("Không đủ cổ phiếu")
+      )
+        throw new Error(detail.message);
+    }
     throw new Error(
       messages[response.status] ||
         "Máy chủ chưa xử lý được yêu cầu. Vui lòng thử lại sau.",

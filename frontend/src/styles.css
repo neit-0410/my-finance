@@ -1583,3 +1583,192 @@ tbody tr:last-child td {
     scroll-behavior: auto !important;
   }
 }
+/* Stock portfolio */
+.investment-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #edf3e8;
+  border: 1px solid #dde8d4;
+  border-radius: 10px;
+  padding: 17px 20px;
+  margin-bottom: 22px;
+  color: #517047;
+}
+.investment-notice strong {
+  font-size: 12px;
+}
+.investment-notice p {
+  font-size: 11px;
+  margin-top: 4px;
+  color: #7b8d70;
+  line-height: 1.8;
+}
+.investment-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.investment-stats .stat-card {
+  padding: 20px 18px;
+}
+.investment-stats .stat-card > strong {
+  font-size: 23px;
+  overflow-wrap: anywhere;
+}
+.investment-stats .stat-card > p {
+  font-size: 9px;
+  line-height: 1.8;
+}
+.investment-stats .stat-card > div {
+  gap: 8px;
+  font-size: 11px;
+}
+.investment-content {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 285px;
+  gap: 22px;
+  align-items: start;
+}
+.investment-ledger {
+  display: grid;
+  gap: 22px;
+  min-width: 0;
+}
+.investment-tabs {
+  display: flex;
+  padding: 17px 22px 0;
+  gap: 22px;
+  border-bottom: 1px solid #e9eee3;
+}
+.investment-tabs > button {
+  padding: 9px 0 14px;
+  background: none;
+  color: #8b9881;
+  border-bottom: 2px solid transparent;
+  font-size: 11px;
+}
+.investment-tabs > button[aria-selected="true"] {
+  color: #176b50;
+  border-bottom-color: #176b50;
+  font-weight: 600;
+}
+.stock-table {
+  margin-top: 0;
+}
+.stock-table th,
+.stock-table td {
+  padding-left: 17px;
+  padding-right: 17px;
+}
+.ticker {
+  font-size: 13px;
+  letter-spacing: 0.5px;
+  color: #31553f;
+}
+.stock-detail {
+  display: block;
+  font-size: 9px;
+  color: #8c9c80;
+  margin-top: 6px;
+}
+.stock-loss {
+  color: #b44a40;
+}
+.stock-trade-form > .alert {
+  margin: 18px 24px 0;
+}
+.stock-trade-form .form-hint {
+  font-size: 10px;
+}
+.stock-quote-form {
+  padding: 0 20px 22px;
+}
+.stock-quote-form .panel-heading {
+  padding: 22px 0 16px;
+  color: #427152;
+}
+.stock-quote-form > .muted {
+  font-size: 11px;
+  line-height: 1.9;
+  margin-bottom: 23px;
+}
+.stock-quote-form .primary {
+  font-size: 11px;
+}
+.stock-method {
+  margin-top: 25px;
+  padding-top: 20px;
+  border-top: 1px solid #edf0e7;
+  font-size: 10px;
+  line-height: 1.9;
+  color: #87967b;
+}
+.stock-method strong {
+  color: #5d7750;
+  font-weight: 600;
+}
+.stock-method p {
+  margin-top: 8px;
+}
+.ticker-input {
+  text-transform: uppercase;
+}
+@media (max-width: 1150px) {
+  .investment-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .investment-content {
+    grid-template-columns: 1fr;
+  }
+  .stock-quote-form {
+    max-width: none;
+  }
+  .investment-stats .stat-card > strong {
+    font-size: 27px;
+  }
+}
+@media (max-width: 600px) {
+  .investment-stats {
+    gap: 11px;
+  }
+  .investment-stats .stat-card {
+    padding: 16px 13px;
+  }
+  .investment-stats .stat-card > strong {
+    font-size: 20px;
+  }
+  .investment-stats .stat-card > div {
+    font-size: 10px;
+  }
+  .investment-stats .stat-card > div svg {
+    width: 16px;
+  }
+  .investment-notice {
+    padding: 14px;
+    gap: 9px;
+  }
+  .investment-notice p {
+    font-size: 10px;
+  }
+  .investment-notice strong {
+    font-size: 11px;
+  }
+  .investment-tabs {
+    gap: 14px;
+    padding-left: 17px;
+  }
+  .sidebar nav {
+    gap: 2px;
+  }
+  .nav-link {
+    font-size: 10px;
+    padding-left: 4px;
+    padding-right: 4px;
+    gap: 5px;
+  }
+  .nav-link svg {
+    width: 15px;
+  }
+}

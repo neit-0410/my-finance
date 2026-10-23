@@ -2,7 +2,17 @@
 
 Backend Spring Boot 4, Java 17 và Maven Wrapper 3.9.12; sử dụng MySQL 8 và MongoDB 7.
 
-## Chạy local
+## Chạy bằng Docker (khuyên dùng)
+
+Toàn bộ React, Spring Boot, MySQL và MongoDB có thể chạy bằng Docker Desktop, không cần IDE hoặc npm trên máy. Xem [hướng dẫn Docker cho Windows](docker/README.md) để tạo `.env.docker` và khóa JWT lần đầu. Sau đó chạy:
+
+```powershell
+docker compose --env-file .env.docker up -d --build --wait
+```
+
+Mở **http://localhost:8088**. Cấu hình/khóa nằm ngoài image và dữ liệu được giữ trong Docker volumes.
+
+## Chạy local bằng IDE
 
 Cần JDK 17 và Docker Compose. Từ thư mục gốc:
 
@@ -11,7 +21,7 @@ Cần JDK 17 và Docker Compose. Từ thư mục gốc:
 set -a
 . ./.env
 set +a
-docker compose up -d --wait mysql mongodb
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --wait mysql mongodb
 
 # Khóa ngẫu nhiên tối thiểu 32 byte, mã hóa Base64. Không commit hoặc in khóa ra log.
 export FINANCE_JWT_SECRET="$(openssl rand -base64 32)"
@@ -34,7 +44,7 @@ python /workspace/.setup/my-finance/run.py start
 
 `FINANCE_JWT_SECRET` bắt buộc khi chạy ứng dụng: thiếu khóa hoặc khóa quá ngắn sẽ khiến ứng dụng không khởi động. Production cần khóa riêng, ổn định, được cung cấp qua secret manager; dùng HTTPS. Đổi khóa làm mất hiệu lực các token đã cấp. `FINANCE_JWT_EXPIRATION_MS` mặc định là 3600000 (1 giờ). Các test dùng khóa fixture riêng, không dùng khóa production.
 
-Dockerfile hiện chưa copy JAR vào final image; các lệnh trên chạy backend bằng Maven/Java và dùng Compose cho database.
+Các lệnh trong mục IDE dùng Maven/Java trên host và chỉ dùng Compose cho database. Để chạy toàn bộ ứng dụng trong container, dùng mục Docker phía trên.
 
 ## Xác thực và quyền truy cập
 

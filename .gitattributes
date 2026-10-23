@@ -1,0 +1,4 @@
+# Docker build scripts must keep LF endings when checked out on Windows.
+*.sh text eol=lf
+*.conf text eol=lf
+Dockerfile text eol=lf

@@ -1,0 +1,8 @@
+# Optional ports for running the backend in an IDE or using database tools on the host.
+services:
+  mysql:
+    ports: ["127.0.0.1:3307:3306"]
+  mongodb:
+    ports: ["127.0.0.1:27017:27017"]
+  backend:
+    ports: ["127.0.0.1:8080:8080"]

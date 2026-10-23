@@ -64,3 +64,8 @@ Chọn **Chứng khoán** → ghi nhận Mua/Bán → nhập giá tham chiếu c
 Chưa hỗ trợ sửa/xóa, cổ tức và chia tách. Phí mua/bán được tính vào lãi/lỗ; các khoản thuế khác chỉ được tính nếu bạn gộp vào phí nhập. Giao dịch đầu tư không tự ghi vào sổ thu chi cá nhân. Tài khoản không thể xem hoặc sửa sổ đầu tư của người khác.
 
 `npm test` bao gồm kiểm thử mua cổ phiếu, cập nhật giá, lịch sử, phản hồi bán vượt số lượng và bố cục mobile. `npm run test:live` kiểm tra thêm mua/cập nhật giá/bán với backend thật; test tạo tài khoản và dữ liệu đầu tư riêng trong database phát triển.
+
+
+## Chạy toàn bộ bằng Docker
+
+Không cần Node/npm trên host. Từ thư mục gốc, tạo `.env.docker` theo [hướng dẫn Docker](../docker/README.md), rồi chạy `docker compose --env-file .env.docker up -d --build --wait`. Mở `http://localhost:8088`. Frontend được build trong image và phục vụ bằng Nginx; `/api` được chuyển tới backend, không dùng Vite dev server.

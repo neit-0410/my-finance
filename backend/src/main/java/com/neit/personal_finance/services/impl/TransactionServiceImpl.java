@@ -1,6 +1,7 @@
 package com.neit.personal_finance.services.impl;
 
-import com.neit.personal_finance.documents.ActivityLog;
+import com.neit.personal_finance.activity.TransactionCreated;
+import org.springframework.context.ApplicationEventPublisher;
 import com.neit.personal_finance.entities.Transaction;
 import com.neit.personal_finance.cache.UserReadCache;
 import tools.jackson.core.type.TypeReference;
@@ -10,23 +11,20 @@ import com.neit.personal_finance.repositories.jpa.CategoryRepository;
 import com.neit.personal_finance.sercurity.CurrentUser;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
-import com.neit.personal_finance.repositories.mongo.ActivityLogRepository;
 import com.neit.personal_finance.repositories.jpa.TransactionRepository;
 import com.neit.personal_finance.services.TransactionService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class TransactionServiceImpl implements TransactionService {
 
     private final TransactionRepository transactionRepository;
-    private final ActivityLogRepository activityLogRepository;
+    private final ApplicationEventPublisher events;
     private final CategoryRepository categoryRepository;
     private final CurrentUser currentUser;
     private final UserReadCache cache;
@@ -45,18 +43,9 @@ public class TransactionServiceImpl implements TransactionService {
         transaction.setCategory(category);
         Transaction saved = transactionRepository.save(transaction);
 
-        // Log in MongoDB
-        Map<String, Object> details = new HashMap<>();
-        details.put("amount", transaction.getAmount());
-        details.put("category", transaction.getCategory().getName());
-
-        ActivityLog log = ActivityLog.builder()
-                .userId(Long.toString(owner.getId()))
-                .action("CREATE_TRANSACTION")
-                .details(details)
-                .build();
-
-        activityLogRepository.save(log);
+        // Immutable scalar snapshot: never pass JPA entities or request security context to a worker.
+        events.publishEvent(new TransactionCreated(owner.getId(), saved.getId(), saved.getAmount(),
+                category.getName(), java.time.LocalDateTime.now()));
         cache.invalidate(owner.getId());
         return saved;
     }

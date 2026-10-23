@@ -44,6 +44,7 @@ services:
       retries: 5
 
   backend:
+    stop_grace_period: 45s
     build:
       context: .
       dockerfile: Dockerfile

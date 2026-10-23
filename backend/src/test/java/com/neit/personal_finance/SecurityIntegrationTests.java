@@ -155,7 +155,9 @@ class SecurityIntegrationTests {
         assertFalse(saved.body().contains("password"));
         assertEquals(1, transactions.findByUserId(owner.getId()).size());
         assertEquals(0, transactions.findByUserId(other.getId()).size());
-        assertTrue(logs.findAll().stream().anyMatch(log -> Long.toString(owner.getId()).equals(log.getUserId())));
+        org.awaitility.Awaitility.await().atMost(java.time.Duration.ofSeconds(10)).untilAsserted(() ->
+                assertTrue(logs.findByUserId(Long.toString(owner.getId())).stream()
+                        .anyMatch(log -> log.getAction().equals("CREATE_TRANSACTION") && log.getTimestamp() != null)));
         var range = request("GET", "/api/transactions/user/" + owner.getId()
                 + "/range?start=2026-01-01&end=2026-12-31", token, null);
         assertEquals(200, range.statusCode());

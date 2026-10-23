@@ -124,3 +124,17 @@ Mỗi lần ghi dữ liệu thành công, `users.cache_revision` tăng trong cù
 Nếu sửa dữ liệu bằng SQL thủ công thay vì API, cache có thể giữ dữ liệu cũ tối đa TTL. Cột phiên bản cache được tạo tự động bằng cấu hình `ddl-auto=update` hiện có. Không cần thay đổi frontend.
 
 Xem [hướng dẫn Redis trong Docker](docker/README.md#redis-cache) để kiểm tra cache. Các integration test Redis cần một Redis thật đang chạy cùng cấu hình `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`; kiểm thử mất kết nối và dữ liệu lỗi cũng có trong suite.
+
+### Xử lý nền nhật ký giao dịch
+
+Sau khi MySQL commit, sự kiện chứa bản sao dữ liệu giao dịch được đưa vào pool riêng
+`activity-log-` (2 luồng thường trực, tối đa 4 luồng, hàng đợi 200 tác vụ).
+MongoDB chậm không giữ request HTTP chờ ghi log. Giao dịch rollback không sinh log;
+quyền truy cập, khóa chống bán vượt số lượng và tăng revision cache vẫn xử lý trong
+transaction MySQL. Worker không nhận JPA entity hoặc phụ thuộc SecurityContext của request.
+
+Nhật ký này là best-effort: MongoDB lỗi hoặc hàng đợi đầy sẽ ghi cảnh báo server và
+bỏ log, không đổi kết quả giao dịch đã commit. Restart đột ngột có thể mất tác vụ
+chưa ghi; thứ tự log không đảm bảo, dùng timestamp và transactionId để đối chiếu.
+Khi tắt bình thường, pool chờ tối đa 20 giây. Nếu cần nhật ký kiểm toán đảm bảo
+không mất, cần transactional outbox và cơ chế retry bền vững.

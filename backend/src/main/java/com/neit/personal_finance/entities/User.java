@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 @Getter
 @Setter
-@NoArgsConstructor
+@NoArgsConstructor(onConstructor_ = @com.fasterxml.jackson.annotation.JsonCreator)
 @AllArgsConstructor
 @Builder
 public class User {
@@ -36,4 +36,8 @@ public class User {
     private LocalDateTime createDt = LocalDateTime.now();
 
     private String role;
+
+    @JsonIgnore
+    @Column(nullable = false, columnDefinition = "bigint not null default 0")
+    private long cacheRevision;
 }

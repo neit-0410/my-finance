@@ -22,9 +22,16 @@ public class CurrentUser {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
     }
 
-    public void requireOwner(Long userId) {
-        if (userId == null || get().getId() != userId) {
+    public User lock() {
+        return users.lockById(get().getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentication required"));
+    }
+
+    public User requireOwner(Long userId) {
+        User owner = get();
+        if (userId == null || owner.getId() != userId) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
         }
+        return owner;
     }
 }

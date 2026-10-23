@@ -4,7 +4,7 @@ Backend Spring Boot 4, Java 17 và Maven Wrapper 3.9.12; sử dụng MySQL 8 và
 
 ## Chạy bằng Docker (khuyên dùng)
 
-Toàn bộ React, Spring Boot, MySQL và MongoDB có thể chạy bằng Docker Desktop, không cần IDE hoặc npm trên máy. Xem [hướng dẫn Docker cho Windows](docker/README.md) để tạo `.env.docker` và khóa JWT lần đầu. Sau đó chạy:
+Toàn bộ React, Spring Boot, MySQL, MongoDB và Redis có thể chạy bằng Docker Desktop, không cần IDE hoặc npm trên máy. Xem [hướng dẫn Docker cho Windows](docker/README.md) để tạo `.env.docker` và khóa JWT lần đầu. Sau đó chạy:
 
 ```powershell
 docker compose --env-file .env.docker up -d --build --wait
@@ -21,11 +21,14 @@ Cần JDK 17 và Docker Compose. Từ thư mục gốc:
 set -a
 . ./.env
 set +a
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --wait mysql mongodb
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --wait mysql mongodb redis
 
 # Khóa ngẫu nhiên tối thiểu 32 byte, mã hóa Base64. Không commit hoặc in khóa ra log.
 export FINANCE_JWT_SECRET="$(openssl rand -base64 32)"
 export SPRING_DATASOURCE_URL="jdbc:mysql://localhost:3307/$MYSQL_DATABASE"
+export REDIS_HOST=localhost
+export REDIS_PORT=6379
+export REDIS_PASSWORD="${REDIS_PASSWORD:-$MYSQL_ROOT_PASSWORD}"
 export SPRING_DATASOURCE_USERNAME=root
 export SPRING_DATASOURCE_PASSWORD="$MYSQL_ROOT_PASSWORD"
 export SPRING_MONGODB_URI="mongodb://localhost:27017/$MONGO_DB"
@@ -72,7 +75,7 @@ Chưa có refresh token, thu hồi token riêng lẻ hoặc rate limiting. Logou
 
 ## Kiểm thử
 
-`sh mvnw verify` chạy kiểm thử context và integration với MySQL/MongoDB đang hoạt động. Integration test kiểm tra đăng ký/đăng nhập, băm password, validation, JWT sai/hết hạn/giả mạo, dữ liệu khác tài khoản, và ghi giao dịch/log. Test tạo dữ liệu với username ngẫu nhiên và xóa dữ liệu đó sau khi chạy; nên dùng database phát triển riêng.
+`sh mvnw verify` chạy kiểm thử context và integration với MySQL/MongoDB/Redis đang hoạt động và mật khẩu Redis đã cấu hình. Integration test kiểm tra đăng ký/đăng nhập, băm password, validation, JWT sai/hết hạn/giả mạo, dữ liệu khác tài khoản, và ghi giao dịch/log. Test tạo dữ liệu với username ngẫu nhiên và xóa dữ liệu đó sau khi chạy; nên dùng database phát triển riêng.
 
 ## Giao diện React
 
@@ -103,3 +106,21 @@ API đều cần Bearer token và tự lấy chủ sở hữu từ tài khoản 
 - `POST /api/investments/prices`: `{"symbol":"FPT","price":98000}`.
 
 Backend tạo hai bảng mới `stock_trades` và `stock_quotes` qua cấu hình `ddl-auto=update` hiện có. Tính tiền bằng `BigDecimal`, làm tròn kết quả đến 4 chữ số thập phân; khóa theo tài khoản khi ghi để chống bán vượt khi có yêu cầu đồng thời. Không cần thêm khóa API hoặc biến môi trường.
+
+## Redis read cache
+
+Docker Compose chạy thêm **Redis 7.4**, backend tự kết nối qua mạng nội bộ. Cập nhật bằng `docker compose --env-file .env.docker up -d --build --wait`; không cần tạo lại database hoặc đổi cấu hình cũ.
+
+Cache các kết quả đọc danh mục, giao dịch (kể cả lọc khoảng ngày) và tổng hợp chứng khoán. TTL mặc định **60 giây**, khóa tách theo tài khoản và phiên bản dữ liệu; quyền truy cập được kiểm tra trước khi dùng cache. Không cache đăng nhập, token hoặc mật khẩu.
+
+Mỗi lần ghi dữ liệu thành công, `users.cache_revision` tăng trong cùng transaction MySQL. Các request sau sử dụng khóa mới; dữ liệu cache cũ tự hết hạn. Rollback không đổi phiên bản. Cách này ngăn một request đọc đang chạy đưa dữ liệu cũ trở lại sau cập nhật, và vẫn giữ tính đúng khi Redis bị ngắt kết nối trong lúc ghi. Tất cả API ghi dữ liệu mới trong tương lai cần gọi `UserReadCache.invalidate` trong transaction tương ứng.
+
+- `APP_CACHE_ENABLED=true` bật cache; đặt `false` để đọc trực tiếp database.
+- `APP_CACHE_TTL_SECONDS=60` đặt TTL dương theo giây. Đọc cache không gia hạn TTL.
+- Redis lỗi/timeout hoặc cache không đọc được: API quay về đọc database; không dùng cache để kiểm tra số cổ phiếu khi bán.
+- `REDIS_PASSWORD` là mật khẩu Redis riêng, có thể thêm vào `.env.docker`. Nếu chưa có hoặc để trống, Compose dùng `MYSQL_ROOT_PASSWORD` hiện tại để tương thích cấu hình cũ. Mật khẩu không được gửi lên frontend.
+- Redis giới hạn 128 MB, dùng `allkeys-lru`, không bật RDB/AOF. Dữ liệu gốc luôn ở MySQL/MongoDB; restart/xóa cache không mất dữ liệu ứng dụng.
+
+Nếu sửa dữ liệu bằng SQL thủ công thay vì API, cache có thể giữ dữ liệu cũ tối đa TTL. Cột phiên bản cache được tạo tự động bằng cấu hình `ddl-auto=update` hiện có. Không cần thay đổi frontend.
+
+Xem [hướng dẫn Redis trong Docker](docker/README.md#redis-cache) để kiểm tra cache. Các integration test Redis cần một Redis thật đang chạy cùng cấu hình `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`; kiểm thử mất kết nối và dữ liệu lỗi cũng có trong suite.

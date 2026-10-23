@@ -1,6 +1,8 @@
 package com.neit.personal_finance.investments;
 
 import com.neit.personal_finance.entities.User;
+import com.neit.personal_finance.cache.UserReadCache;
+import tools.jackson.core.type.TypeReference;
 import com.neit.personal_finance.repositories.jpa.*;
 import com.neit.personal_finance.sercurity.CurrentUser;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +24,14 @@ public class InvestmentService {
     private final StockQuoteRepository quotes;
     private final UserRepository users;
     private final CurrentUser currentUser;
+    private final UserReadCache cache;
     private static final BigDecimal ZERO = BigDecimal.ZERO;
 
     @Transactional(readOnly = true)
-    public Portfolio portfolio() { return snapshot(currentUser.get().getId()); }
+    public Portfolio portfolio() {
+        User owner = currentUser.get();
+        return cache.get(owner, "portfolio", new TypeReference<Portfolio>() {}, () -> snapshot(owner.getId()));
+    }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public Portfolio trade(TradeRequest request) {
@@ -40,7 +46,9 @@ public class InvestmentService {
         trade.setTradeDate(request.tradeDate());
         trades.saveAndFlush(trade);
         // Replay validates all dates, including backdated trades. Any invalid sale rolls back this insert.
-        return snapshot(owner.getId());
+        Portfolio result = snapshot(owner.getId());
+        cache.invalidate(owner.getId());
+        return result;
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
@@ -56,7 +64,9 @@ public class InvestmentService {
         quote.setPrice(request.price());
         quote.setUpdatedAt(Instant.now());
         quotes.saveAndFlush(quote);
-        return snapshot(owner.getId());
+        Portfolio result = snapshot(owner.getId());
+        cache.invalidate(owner.getId());
+        return result;
     }
 
     private User lockedOwner() {

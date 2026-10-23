@@ -28,6 +28,21 @@ services:
       start_period: 15s
       retries: 12
 
+  redis:
+    image: redis:7.4-alpine
+    restart: unless-stopped
+    user: redis
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-${MYSQL_ROOT_PASSWORD}}
+    command: ["sh", "-c", 'exec redis-server --bind 0.0.0.0 --protected-mode yes --requirepass "$${REDIS_PASSWORD}" --maxmemory 128mb --maxmemory-policy allkeys-lru --save "" --appendonly no']
+    networks: [finance-network]
+    healthcheck:
+      test: ["CMD-SHELL", 'REDISCLI_AUTH="$${REDIS_PASSWORD}" redis-cli ping | grep -q PONG']
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -36,8 +51,14 @@ services:
     depends_on:
       mysql: {condition: service_healthy}
       mongodb: {condition: service_healthy}
+      redis: {condition: service_started}
     environment:
       SPRING_PROFILES_ACTIVE: docker
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-${MYSQL_ROOT_PASSWORD}}
+      APP_CACHE_ENABLED: ${APP_CACHE_ENABLED:-true}
+      APP_CACHE_TTL_SECONDS: ${APP_CACHE_TTL_SECONDS:-60}
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-finance_db}?allowPublicKeyRetrieval=true&useSSL=false
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in your env file}

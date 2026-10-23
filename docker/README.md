@@ -71,10 +71,10 @@ Database trong MySQL/MongoDB cài trên Windows/IDE **không tự chuyển** san
 docker compose --env-file .env.docker -f docker-compose.yaml -f docker-compose.dev.yaml up -d --build --wait
 ```
 
-File override mở thêm localhost: MySQL `3307`, MongoDB `27017`, backend `8080`. Dừng backend IDE trước khi mở cổng 8080 bằng Docker. Nếu chỉ cần database cho backend chạy trong IDE:
+File override mở thêm localhost: MySQL `3307`, MongoDB `27017`, backend `8080`, Redis `6379`. Dừng backend IDE trước khi mở cổng 8080 bằng Docker. Nếu chỉ cần database cho backend chạy trong IDE:
 
 ```powershell
-docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --wait mysql mongodb
+docker compose -f docker-compose.yaml -f docker-compose.dev.yaml up -d --wait mysql mongodb redis
 ```
 
 Lệnh này dùng `.env` cũ theo mặc định, không cần khóa JWT vì không chạy backend container.
@@ -102,3 +102,36 @@ Remove-Item Env:E2E_BASE_URL
 ```
 
 Tests tạo tài khoản/dữ liệu thử trong database phát triển. Trong môi trường cloud có proxy CA riêng, Dockerfile hỗ trợ BuildKit secret `proxy_ca` và `maven_settings` tùy chọn; cấu hình/mount riêng của phiên không được lưu vào repository hoặc image runtime. Trên Docker Desktop thông thường không cần các secret build này.
+
+## Redis cache
+
+Stack hiện gồm **5 service**: frontend, backend, MySQL, MongoDB và Redis. Cập nhật như các phiên bản trước:
+
+```powershell
+git pull origin master
+docker compose --env-file .env.docker up -d --build --wait
+```
+
+Redis không publish cổng ra host trong cấu hình mặc định, luôn yêu cầu mật khẩu. Backend tự nhận mật khẩu từ Compose. Có thể thêm `REDIS_PASSWORD` riêng vào `.env.docker`; nếu chưa có, Compose dùng `MYSQL_ROOT_PASSWORD` sẵn có. Không cần sinh lại JWT hoặc xóa volume.
+
+Cache có TTL 60 giây và tự đổi khóa sau cập nhật dữ liệu qua API. Có thể chỉnh `APP_CACHE_TTL_SECONDS` hoặc tắt bằng `APP_CACHE_ENABLED=false` trong `.env.docker`, rồi chạy lại Compose. Cache được bỏ qua khi Redis không kết nối được; ứng dụng vẫn dùng MySQL/MongoDB làm nguồn dữ liệu.
+
+Vào Redis CLI mà không phải gõ mật khẩu ra màn hình:
+
+```powershell
+docker compose --env-file .env.docker exec redis sh -c 'export REDISCLI_AUTH="$REDIS_PASSWORD"; exec redis-cli'
+```
+
+Trong Redis CLI:
+
+```text
+PING
+INFO stats
+SCAN 0 MATCH finance:cache:v1:user:* COUNT 100
+```
+
+`PING` trả `PONG`. Mở các màn hình nhiều lần rồi xem `keyspace_hits` trong `INFO stats`. `SCAN` trả cursor và tên khóa; tiếp tục với cursor trả về nếu muốn xem thêm. Dùng `TTL <tên-khóa>` để kiểm tra thời hạn. Cache không chứa token hoặc mật khẩu người dùng.
+
+File override `docker-compose.dev.yaml` mở thêm Redis trên `127.0.0.1:6379` cho IDE/công cụ quản trị. Khi chạy backend ngoài Docker và muốn dùng Redis này, đặt `REDIS_HOST=localhost`, `REDIS_PORT=6379`, `REDIS_PASSWORD` bằng mật khẩu đang dùng của Redis. Nếu không chạy Redis, backend tự đọc database; có thể đặt `APP_CACHE_ENABLED=false` để bỏ hẳn các lần thử kết nối.
+
+Redis chỉ là bộ nhớ đệm, không cấu hình persistence. MySQL/MongoDB vẫn dùng các named volume hiện có; thao tác cập nhật cache không đòi hỏi xóa dữ liệu. Các request đọc cũ không được ghi lại dữ liệu vào phiên bản cache mới sau một transaction cập nhật.

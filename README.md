@@ -63,3 +63,15 @@ Chưa có refresh token, thu hồi token riêng lẻ hoặc rate limiting. Logou
 ## Kiểm thử
 
 `sh mvnw verify` chạy kiểm thử context và integration với MySQL/MongoDB đang hoạt động. Integration test kiểm tra đăng ký/đăng nhập, băm password, validation, JWT sai/hết hạn/giả mạo, dữ liệu khác tài khoản, và ghi giao dịch/log. Test tạo dữ liệu với username ngẫu nhiên và xóa dữ liệu đó sau khi chạy; nên dùng database phát triển riêng.
+
+## Giao diện React
+
+Ứng dụng có frontend tiếng Việt tại `frontend/`. Chạy backend ở cổng 8080, rồi mở terminal khác:
+
+```bash
+cd frontend
+npm ci
+npm run dev
+```
+
+Mở `http://localhost:5173` để đăng ký/đăng nhập, tạo danh mục, ghi thu chi và xem tổng quan. Frontend tự quản lý Bearer token, không cần Postman. Cần Node.js 22.12+ hoặc 24 LTS. Xem [hướng dẫn frontend](frontend/README.md) để cấu hình proxy, build và chạy kiểm thử.

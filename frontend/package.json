@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "playwright test e2e/app.spec.ts e2e/investment.spec.ts",
+    "test": "playwright test e2e/app.spec.ts e2e/investment.spec.ts e2e/idempotency.spec.ts",
     "test:live": "playwright test e2e/live.spec.ts"
   },
   "dependencies": {

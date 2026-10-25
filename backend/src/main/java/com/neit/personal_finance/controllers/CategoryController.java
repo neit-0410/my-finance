@@ -1,5 +1,7 @@
 package com.neit.personal_finance.controllers;
 
+import com.neit.personal_finance.idempotency.IdempotencyService;
+
 import com.neit.personal_finance.entities.Category;
 import com.neit.personal_finance.dto.request.CategoryRequest;
 import jakarta.validation.Valid;
@@ -16,10 +18,13 @@ import java.util.List;
 public class CategoryController {
 
     private final CategoryService categoryService;
+    private final IdempotencyService idempotency;
 
     @PostMapping
-    public ResponseEntity<Category> create(@Valid @RequestBody CategoryRequest request) {
-        return ResponseEntity.ok(categoryService.createCategory(Category.builder().name(request.name()).type(request.type()).build()));
+    public ResponseEntity<String> create(@Valid @RequestBody CategoryRequest request,
+            @RequestHeader(value = "Idempotency-Key", required = false) String key) {
+        return idempotency.execute(key, "POST /api/categories", request, () ->
+                categoryService.createCategory(Category.builder().name(request.name()).type(request.type()).build()));
     }
 
     @GetMapping("/user/{userId}")

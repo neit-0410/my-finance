@@ -45,15 +45,46 @@ export function readSession(): Session | null {
   }
   return null;
 }
+// Keep the same key after an uncertain network/server failure, including a reload.
+const inFlight = new Map<string, Promise<unknown>>();
+const pendingKeys = new Map<string, string>();
 export async function api<T>(
   path: string,
   options: { token?: string; body?: unknown; signal?: AbortSignal } = {},
+): Promise<T> {
+  const protectedWrite = !!options.token && options.body !== undefined &&
+    ["/categories", "/transactions", "/investments/trades", "/investments/prices"].includes(path);
+  if (!protectedWrite) return send<T>(path, options);
+  const bytes = new TextEncoder().encode(options.token + "\n" + path + "\n" + JSON.stringify(options.body));
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  const slot = "so-nho.pending." + Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, "0")).join("");
+  const running = inFlight.get(slot);
+  if (running) return running as Promise<T>;
+  let key = pendingKeys.get(slot);
+  try { key = sessionStorage.getItem(slot) || key; } catch { /* memory fallback */ }
+  key ||= crypto.randomUUID();
+  pendingKeys.set(slot, key);
+  try { sessionStorage.setItem(slot, key); } catch { /* memory fallback */ }
+  const clear = () => {
+    pendingKeys.delete(slot);
+    try { sessionStorage.removeItem(slot); } catch { /* disabled storage */ }
+  };
+  const promise = send<T>(path, options, key, clear).finally(() => inFlight.delete(slot));
+  inFlight.set(slot, promise);
+  return promise;
+}
+async function send<T>(
+  path: string,
+  options: { token?: string; body?: unknown; signal?: AbortSignal },
+  key?: string,
+  clear?: () => void,
 ): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api${path}`, {
       method: options.body === undefined ? "GET" : "POST",
       headers: {
+        ...(key ? { "Idempotency-Key": key } : {}),
         ...(options.body !== undefined
           ? { "Content-Type": "application/json" }
           : {}),
@@ -66,9 +97,12 @@ export async function api<T>(
   } catch (error) {
     if (error instanceof DOMException && error.name === "AbortError")
       throw error;
-    throw new Error("Không thể kết nối máy chủ. Vui lòng thử lại sau.");
+    throw new Error(key
+      ? "Chưa xác nhận được kết quả. Hãy giữ nguyên thông tin và thử lại, hoặc kiểm tra lịch sử trước khi thay đổi dữ liệu."
+      : "Không thể kết nối máy chủ. Vui lòng thử lại sau.");
   }
   if (!response.ok) {
+    if (response.status >= 400 && response.status < 500 && ![408, 429].includes(response.status)) clear?.();
     if (response.status === 401 && options.token)
       window.dispatchEvent(new Event("session-expired"));
     const messages: Record<number, string> = {
@@ -78,7 +112,9 @@ export async function api<T>(
         : "Tên đăng nhập hoặc mật khẩu không đúng.",
       403: "Bạn không có quyền truy cập dữ liệu này.",
       404: "Không tìm thấy dữ liệu. Vui lòng tải lại trang.",
-      409: "Tên đăng nhập hoặc email đã được sử dụng.",
+      409: path.startsWith("/auth")
+        ? "Tên đăng nhập hoặc email đã được sử dụng."
+        : "Khóa yêu cầu đã được dùng cho nội dung khác. Vui lòng kiểm tra lại dữ liệu.",
     };
     if (path.startsWith("/investments") && response.status === 400) {
       const detail = await response.json().catch(() => null);
@@ -89,10 +125,12 @@ export async function api<T>(
         throw new Error(detail.message);
     }
     throw new Error(
-      messages[response.status] ||
-        "Máy chủ chưa xử lý được yêu cầu. Vui lòng thử lại sau.",
+      messages[response.status] || (key
+        ? "Chưa xác nhận được kết quả. Hãy giữ nguyên thông tin và thử lại, hoặc kiểm tra lịch sử trước khi thay đổi dữ liệu."
+        : "Máy chủ chưa xử lý được yêu cầu. Vui lòng thử lại sau."),
     );
   }
-  if (response.status === 204) return undefined as T;
-  return response.json() as Promise<T>;
+  const result = response.status === 204 ? undefined as T : await response.json() as T;
+  clear?.();
+  return result;
 }

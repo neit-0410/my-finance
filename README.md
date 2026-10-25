@@ -138,3 +138,44 @@ bỏ log, không đổi kết quả giao dịch đã commit. Restart đột ng�
 chưa ghi; thứ tự log không đảm bảo, dùng timestamp và transactionId để đối chiếu.
 Khi tắt bình thường, pool chờ tối đa 20 giây. Nếu cần nhật ký kiểm toán đảm bảo
 không mất, cần transactional outbox và cơ chế retry bền vững.
+
+### Idempotency: chống tạo dữ liệu trùng khi gửi lại
+
+Bốn API POST `/api/categories`, `/api/transactions`, `/api/investments/trades` và
+`/api/investments/prices` nhận header tùy chọn `Idempotency-Key`. Mỗi thao tác mới
+cần một khóa mới (khuyến nghị UUID); khi timeout/mất kết nối, gửi lại cùng khóa và
+cùng dữ liệu. Khóa hợp lệ gồm 1–128 ký tự ASCII: chữ, số, dấu `.`, `_`, `:`, `-`.
+Không gửi khóa vẫn giữ hành vi cũ, **không được bảo vệ khỏi gửi trùng**.
+
+- Cùng tài khoản + khóa + API + DTO hợp lệ: trả lại nguyên JSON/status 200 của lần
+  thành công đầu tiên, header `Idempotency-Replayed: true`. Lần đầu là `false`.
+- Cùng tài khoản + khóa nhưng khác API hoặc dữ liệu: trả `409`. Thứ tự thuộc tính
+  JSON không ảnh hưởng; không chuẩn hóa các khác biệt giá trị như hoa/thường.
+- Khóa được tách theo tài khoản. Mọi lần thử lại vẫn cần Bearer token hợp lệ.
+- Validation, thiếu quyền hoặc lỗi nghiệp vụ không lưu kết quả; transaction lỗi
+  rollback cả dữ liệu lẫn bản ghi khóa. Có thể thử lại khóa đó sau khi sửa lỗi.
+- Các yêu cầu đồng thời cùng tài khoản được tuần tự hóa bằng khóa hàng MySQL;
+  kết quả được ghi trong **cùng transaction** với giao dịch và revision cache.
+  Retry không tăng revision, ghi thêm lệnh mua/bán hoặc phát thêm sự kiện log.
+  Lock timeout/lỗi tạm thời có thể yêu cầu client thử lại với cùng khóa.
+
+Bảng `idempotency_records` được Hibernate tạo khi khởi động (`ddl-auto=update`),
+được lưu trong volume MySQL hiện có. Redis không tham gia quyết định chống trùng.
+Hiện không tự hết hạn/xóa khóa; không tái sử dụng khóa cũ. Bảng lưu hash khóa,
+hash API/DTO, thời gian và JSON phản hồi; không lưu Bearer token hoặc request thô.
+JSON phản hồi có thông tin tài khoản và dữ liệu tài chính như API gốc, cần được
+bảo vệ/backup như database. Xóa tài khoản sẽ xóa bản ghi khóa qua foreign key cascade.
+Nếu tự xóa bản ghi khóa, lần gửi lại sau đó có thể tạo dữ liệu mới.
+
+Frontend tự tạo khóa, gộp các lần submit đồng thời và giữ khóa trong sessionStorage
+sau lỗi mạng/5xx hoặc lỗi đọc phản hồi. Thử lại **cùng dữ liệu trong cùng phiên đăng
+nhập/tab** (kể cả reload) dùng lại khóa; khi thành công hoặc lỗi 4xx xác định
+(trừ 408/429), khóa được giải phóng để một thao tác mới có thể có dữ liệu giống hệt.
+Nếu sửa dữ liệu hoặc đổi phiên đăng nhập sau lỗi không rõ kết quả, hãy kiểm tra
+lịch sử trước khi gửi thao tác mới. Phản hồi replay là ảnh chụp lúc tạo, vì vậy
+portfolio trả lại có thể cũ hơn GET `/api/investments` hiện tại.
+
+Ví dụ Postman: chọn POST `/api/transactions`, Bearer Token như trước, thêm header
+`Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000`, rồi gửi cùng JSON hai lần.
+Hai phản hồi có cùng id, database chỉ có một giao dịch. Đổi `amount` nhưng giữ
+khóa sẽ nhận `409`. Giao dịch khác cần UUID khác.

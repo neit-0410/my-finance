@@ -31,4 +31,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> conflict(DataIntegrityViolationException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("message", "Data conflict"));
     }
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> unexpected(Exception ex) {
+        // Keep infrastructure failures as 5xx so clients can safely retry the same key.
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("message", "Request could not be completed"));
+    }
+
 }

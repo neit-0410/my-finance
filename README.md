@@ -179,3 +179,5 @@ Ví dụ Postman: chọn POST `/api/transactions`, Bearer Token như trước, t
 `Idempotency-Key: 550e8400-e29b-41d4-a716-446655440000`, rồi gửi cùng JSON hai lần.
 Hai phản hồi có cùng id, database chỉ có một giao dịch. Đổi `amount` nhưng giữ
 khóa sẽ nhận `409`. Giao dịch khác cần UUID khác.
+
+Bộ test case chi tiết và collection Postman tự tạo dữ liệu thử: [Kiểm thử Idempotency](docs/testing/idempotency-test-cases.md).

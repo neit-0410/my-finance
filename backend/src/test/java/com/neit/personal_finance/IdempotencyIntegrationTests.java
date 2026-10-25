@@ -151,4 +151,50 @@ class IdempotencyIntegrationTests {
         assertEquals(1, categories.findByUserId(owner.user().getId()).size());
     }
 
+    @Test void keyLengthAndCharacterBoundariesAreValidatedWithoutCreatingData() throws Exception {
+        var owner = account();
+        for (String key : List.of("", "bad key", "bad/key", "x".repeat(129))) {
+            assertEquals(400, req("/categories", owner.token(), key, category("Boundary")).statusCode());
+        }
+        assertTrue(categories.findByUserId(owner.user().getId()).isEmpty());
+        for (String key : List.of("x", "x".repeat(128), "valid._:-123")) {
+            var first = req("/categories", owner.token(), key, category("Boundary"));
+            var replay = req("/categories", owner.token(), key, category("Boundary"));
+            assertEquals(200, first.statusCode(), first.body());
+            assertEquals(first.body(), replay.body());
+            assertEquals("true", replay.headers().firstValue("Idempotency-Replayed").orElseThrow());
+        }
+        assertEquals(3, categories.findByUserId(owner.user().getId()).size());
+    }
+
+    @Test void missingKeysAndDistinctCaseSensitiveKeysAllowIntentionalDuplicatePayloads() throws Exception {
+        var owner = account();
+        var ids = new HashSet<Long>();
+        for (String key : Arrays.asList(null, null, "Case-Key", "case-key")) {
+            var result = req("/categories", owner.token(), key, category("Same payload"));
+            assertEquals(200, result.statusCode(), result.body());
+            assertTrue(ids.add(json.readTree(result.body()).get("id").asLong()));
+        }
+        assertEquals(4, categories.findByUserId(owner.user().getId()).size());
+    }
+
+    @Test void forbiddenWriteDoesNotReserveKeyAndValidationFailureCanBeCorrected() throws Exception {
+        var owner = account(); var other = account();
+        var foreignCategory = req("/categories", other.token(), null, category("Other category"));
+        var foreignId = json.readTree(foreignCategory.body()).get("id").asLong();
+        var body = new HashMap<String, Object>(Map.of("amount", 10, "type", "EXPENSE",
+                "categoryId", foreignId, "transactionDate", LocalDate.now().toString()));
+        assertEquals(403, req("/transactions", owner.token(), "permission-key", body).statusCode());
+        assertTrue(transactions.findByUserId(owner.user().getId()).isEmpty());
+        var ownCategory = req("/categories", owner.token(), null, category("Own category"));
+        body.put("categoryId", json.readTree(ownCategory.body()).get("id").asLong());
+        var retry = req("/transactions", owner.token(), "permission-key", body);
+        assertEquals(200, retry.statusCode(), retry.body());
+        assertEquals("false", retry.headers().firstValue("Idempotency-Replayed").orElseThrow());
+        await().atMost(Duration.ofSeconds(10)).untilAsserted(() ->
+                assertEquals(1, logs.findByUserId(Long.toString(owner.user().getId())).size()));
+        assertEquals(400, req("/categories", owner.token(), "validation-key", category("")).statusCode());
+        assertEquals(200, req("/categories", owner.token(), "validation-key", category("Corrected")).statusCode());
+    }
+
 }
